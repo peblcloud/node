@@ -4,7 +4,7 @@ import * as net from 'net';
 export const service = (server, endpoint) => new Promise((resolve, reject) => {
   const context = process.env.__PEBL_CONTEXT;
 
-  if (context === endpoint) {
+  if (context === `service:${endpoint}`) {
     server.listen(80);
     return;
   }
@@ -37,10 +37,46 @@ export const service = (server, endpoint) => new Promise((resolve, reject) => {
 
 });
 
-export const redis = (name) => new Promise((resolve, reject) => {
+export const internalService = (server, endpoint) => new Promise((resolve, reject) => {
+  const context = process.env.__PEBL_CONTEXT;
+
+  if (context === `iservice:${endpoint}`) {
+    server.listen(80);
+    return;
+  }
+
+  if (context !== undefined) {
+    resolve(undefined);
+    return;
+  }
+
   const kernel_url = process.env.__PEBL_KERNEL_URL;
   const kernel_port = process.env.__PEBL_KERNEL_PORT;
   const token = process.env.__PEBL_TOKEN;
+
+  if (kernel_url === undefined || kernel_port === undefined || token === undefined) {
+    reject(new Error("invalid environment detected, are you using `pebl run`?"));
+  }
+
+  const encoded_endpoint = encodeURIComponent(endpoint);
+  http.get(`http://${kernel_url}:${kernel_port}/service?token=${token}&endpoint=${encoded_endpoint}&internal=1`, (res) => {
+    if (res.statusCode === 200) {
+      resolve(undefined);
+    } else {
+      reject(new Error("unable to complete service request"));
+    }
+    res.on('data', (chunk) => { });
+    res.on('close', () => { });
+  }).on('error', (err) => {
+    reject(err);
+  });
+
+});
+
+export const redis = (name) => new Promise((resolve, reject) => {
+  const kernel_url = process.env.__PEBL_KERNEL_URL;
+  const kernel_port = process.env.__PEBL_KERNEL_PORT;
+  const token =  process.env.__PEBL_TOKEN;
 
   if (kernel_url === undefined || kernel_port === undefined || token === undefined) {
     reject(new Error("invalid environment detected, are you using `pebl run`?"));
@@ -134,13 +170,14 @@ export const mysql = (name) => new Promise((resolve, reject) => {
 export const cron = (name, schedule, fn) => new Promise((resolve, reject) => {
   const context = process.env.__PEBL_CONTEXT;
 
-  if (context === name) {
+  if (context === `cron:${name}`) {
     fn()
     process.exit(0);
   }
 
   if (context !== undefined) {
     resolve(undefined);
+    return;
   }
 
   const kernel_url = process.env.__PEBL_KERNEL_URL;
