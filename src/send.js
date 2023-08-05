@@ -1,5 +1,7 @@
 import * as http from "http";
 
+const __version = "0.0.10"
+
 export const check_env = () => {
   const kernel_url = process.env.__PEBL_KERNEL_URL;
   const kernel_port = process.env.__PEBL_KERNEL_PORT;
@@ -16,8 +18,8 @@ export const check_env = () => {
     );
     console.log("a local pebl cluster or in the pebl cloud environment.");
     console.log("");
-    console.log("for more information visit:");
-    console.log("https://docs.pebl.io/issues");
+    console.log("for more information visit: https://docs.pebl.io/issues");
+    console.log("");
     process.abort(1);
   }
 
@@ -29,6 +31,7 @@ export const send = ({ method, path, query, form }) => {
 
   let headers = {
     TOKEN: token,
+    VERSION: __version,
   };
 
   if (form !== undefined) {

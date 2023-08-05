@@ -1,285 +1,160 @@
-import * as http from "http";
 import * as net from "net";
+import { send, check_env } from "./send.js";
 
-export const service = (server, endpoint) =>
-  new Promise((resolve, reject) => {
-    const context = process.env.__PEBL_CONTEXT;
-
-    if (context === `service:${endpoint}`) {
-      server.listen(80);
-      return;
-    }
-
-    if (context !== undefined) {
-      resolve(undefined);
-      return;
-    }
-
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
+export const service = async (server, endpoint) => {
+  return send({
+    method: "GET",
+    path: "/service",
+    query: {
+      endpoint: endpoint,
+      internal: "0",
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        return undefined;
+      }
+      if (res.status === 1) {
+        throw new Error(res.error);
+      }
+      if (res.status === 2) {
+        server.listen(80);
+        return new Promise(() => {});
+      }
+      throw new Error(
+        "received an unrecognized payload, are you running on an outdated version?"
       );
-    }
+    })
+    .catch((err) => {
+      console.log(`exception during: service(service, ${endpoint})`);
+      console.log(err);
+      throw err;
+    });
+};
 
-    const encoded_endpoint = encodeURIComponent(endpoint);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/service?token=${token}&endpoint=${encoded_endpoint}`,
-        (res) => {
-          if (res.statusCode === 200) {
-            resolve(undefined);
-          } else {
-            reject(new Error("unable to complete service request"));
-          }
-          res.on("data", (chunk) => {});
-          res.on("close", () => {});
-        }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
-
-export const internalService = (server, endpoint) =>
-  new Promise((resolve, reject) => {
-    const context = process.env.__PEBL_CONTEXT;
-
-    if (context === `iservice:${endpoint}`) {
-      server.listen(80);
-      return;
-    }
-
-    if (context !== undefined) {
-      resolve(undefined);
-      return;
-    }
-
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
+export const internalService = async (server, endpoint) => {
+  return send({
+    method: "GET",
+    path: "/service",
+    query: {
+      endpoint: endpoint,
+      internal: "1",
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        return undefined;
+      }
+      if (res.status === 1) {
+        throw new Error(res.error);
+      }
+      if (res.status === 2) {
+        server.listen(80);
+        return new Promise(() => {});
+      }
+      throw new Error(
+        "received an unrecognized payload, are you running on an outdated version?"
       );
-    }
+    })
+    .catch((err) => {
+      console.log(`exception during: internalService(service, ${endpoint})`);
+      console.log(err);
+      throw err;
+    });
+};
 
-    const encoded_endpoint = encodeURIComponent(endpoint);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/service?token=${token}&endpoint=${encoded_endpoint}&internal=1`,
-        (res) => {
-          if (res.statusCode === 200) {
-            resolve(undefined);
-          } else {
-            reject(new Error("unable to complete service request"));
-          }
-          res.on("data", (chunk) => {});
-          res.on("close", () => {});
-        }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
+export const redis = async (name) => {
+  return send({
+    method: "GET",
+    path: "/redis",
+    query: {
+      name: name,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        return {
+          host: res.host,
+          port: res.port,
+          addr: `${res.host}:${res.port}`,
+        };
+      }
+      throw new Error(res.error);
+    })
+    .catch((err) => {
+      console.log(`exception during: redis(${name}})`);
+      console.log(err);
+      throw err;
+    });
+};
 
-export const redis = (name) =>
-  new Promise((resolve, reject) => {
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
+export const mysql = async (name) => {
+  return send({
+    method: "GET",
+    path: "/mysql",
+    query: {
+      name: name,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        return {
+          host: res.host,
+          port: res.port,
+          addr: `${res.host}:${res.port}`,
+        };
+      }
+      throw new Error(res.error);
+    })
+    .catch((err) => {
+      console.log(`exception during: mysql(${name}})`);
+      console.log(err);
+      throw err;
+    });
+};
 
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
+export const cron = async (name, schedule, fn) => {
+  return send({
+    method: "GET",
+    path: "/cron",
+    query: {
+      name: name,
+      schedule: schedule,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        return undefined;
+      }
+      if (res.status === 1) {
+        throw new Error(res.error);
+      }
+      if (res.status === 2) {
+        fn();
+        process.abort(0);
+      }
+      throw new Error(
+        "received an unrecognized payload, are you running on an outdated version?"
       );
-    }
+    })
+    .catch((err) => {
+      console.log(`exception during: cron(${name}, ${schedule}, ${fn.name})`);
+      console.log(err);
+      throw err;
+    });
+};
 
-    const encoded_name = encodeURIComponent(name);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/redis?token=${token}&name=${encoded_name}`,
-        (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error("unable to complete redis request"));
-          }
+export const open = async (path, mode) => {
+  const { kernel_url, kernel_port, token } = check_env();
+  const encoded_path = encodeURIComponent(path);
+  const encoded_mode = encodeURIComponent(mode);
 
-          let data = "";
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-
-          res.on("close", () => {
-            if (data.length < 2) {
-              reject(new Error("unable to complete redis request"));
-              return;
-            }
-
-            if (data[0] !== "0") {
-              reject(new Error(data.split("\n")[1]));
-              return;
-            }
-
-            const parts = data.split("\n")[1].split(":");
-            if (parts.length !== 2) {
-              reject(new Error("unable to complete redis request"));
-            }
-            resolve({
-              host: parts[0],
-              port: Number(parts[1]),
-              addr: data.split("\n")[1],
-            });
-          });
-        }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
-
-export const mysql = (name) =>
-  new Promise((resolve, reject) => {
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
-      );
-    }
-
-    const encoded_name = encodeURIComponent(name);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/mysql?token=${token}&name=${encoded_name}`,
-        (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error("unable to complete mysql request"));
-          }
-
-          let data = "";
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-
-          res.on("close", () => {
-            if (data.length < 2) {
-              reject(new Error("unable to complete mysql request"));
-              return;
-            }
-
-            if (data[0] !== "0") {
-              reject(new Error(data.split("\n")[1]));
-              return;
-            }
-
-            const parts = data.split("\n")[1].split(":");
-            if (parts.length !== 2) {
-              reject(new Error("unable to complete mysql request"));
-            }
-            resolve({
-              host: parts[0],
-              port: Number(parts[1]),
-              addr: data.split("\n")[1],
-              user: "root",
-              password: "",
-            });
-          });
-        }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
-
-export const cron = (name, schedule, fn) =>
-  new Promise((resolve, reject) => {
-    const context = process.env.__PEBL_CONTEXT;
-
-    if (context === `cron:${name}`) {
-      fn();
-      process.exit(0);
-    }
-
-    if (context !== undefined) {
-      resolve(undefined);
-      return;
-    }
-
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
-      );
-    }
-
-    const encoded_name = encodeURIComponent(name);
-    const encoded_schedule = encodeURIComponent(schedule);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/cron?token=${token}&name=${encoded_name}&schedule=${encoded_schedule}`,
-        (res) => {
-          if (res.statusCode === 200) {
-            resolve(undefined);
-          } else {
-            reject(new Error("unable to complete cron request"));
-          }
-          res.on("data", (chunk) => {});
-          res.on("close", () => {});
-        }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
-
-export const open = (path, mode) =>
-  new Promise((resolve, reject) => {
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
-      );
-    }
-
-    const encoded_path = encodeURIComponent(path);
-    const encoded_mode = encodeURIComponent(mode);
-
+  return new Promise((resolve, reject) => {
     const socket = net.connect({
       host: kernel_url,
       port: Number(kernel_port),
@@ -287,9 +162,11 @@ export const open = (path, mode) =>
 
     socket.on("connect", () => {
       socket.write(
-        `GET /open?token=${token}&mode=${encoded_mode}&path=${encoded_path} HTTP/1.1\r\n`
+        `GET /open?mode=${encoded_mode}&path=${encoded_path} HTTP/1.1\r\n`
       );
       socket.write(`Host: ${kernel_url}:${kernel_port}\r\n`);
+      socket.write(`TOKEN: ${token}\r\n`);
+      socket.write(`VERSION: 0.0.10\r\n`);
       socket.write(`Content-Length: 0\r\n\r\n`);
     });
 
@@ -347,114 +224,139 @@ export const open = (path, mode) =>
       }
     });
   });
+};
 
-export const get = (key) =>
-  new Promise((resolve, reject) => {
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
+export const get = async (key) => {
+  return send({
+    method: "GET",
+    path: "/kv",
+    query: {
+      key: key,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
 
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
-      );
-    }
-
-    const encoded_key = encodeURIComponent(key);
-    http
-      .get(
-        `http://${kernel_url}:${kernel_port}/kv?token=${token}&key=${encoded_key}`,
-        (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error("unable to access kernel"));
-          }
-
-          let data = "";
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-
-          res.on("close", () => {
-            if (data.length < 2) {
-              reject(new Error("unable to access kernel"));
-              return;
-            }
-
-            if (data[0] === "0") {
-              resolve(data.slice(2));
-              return;
-            }
-
-            if (data[0] === "1") {
-              resolve(undefined);
-              return;
-            }
-
-            reject(new Error(data.slice(2)));
-          });
+      if (res.status === 0) {
+        if (res.found) {
+          return res.data;
         }
-      )
-      .on("error", (err) => {
-        reject(err);
-      });
-  });
-
-export const set = (key, value) =>
-  new Promise((resolve, reject) => {
-    const kernel_url = process.env.__PEBL_KERNEL_URL;
-    const kernel_port = process.env.__PEBL_KERNEL_PORT;
-    const token = process.env.__PEBL_TOKEN;
-
-    if (
-      kernel_url === undefined ||
-      kernel_port === undefined ||
-      token === undefined
-    ) {
-      reject(
-        new Error("invalid environment detected, are you using `pebl run`?")
-      );
-    }
-
-    const req = http.request(
-      {
-        method: "POST",
-        hostname: kernel_url,
-        port: kernel_port,
-        path: `/kv?token=${token}`,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      },
-      (res) => {
-        if (res.statusCode !== 200) {
-          reject(new Error("unable to access kernel"));
-        }
-
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk;
-        });
-
-        res.on("close", () => {
-          if (data.length === 0) {
-            resolve(undefined);
-          } else {
-            reject(new Error(data));
-          }
-        });
+        return undefined;
       }
-    );
 
-    req.on('error', (err) => {
-      reject(err);
+      throw new Error(res.error);
+    })
+    .catch((err) => {
+      console.log(`exception during: get(${key})`);
+      console.log(err);
+      throw err;
     });
+};
 
-    const encoded_key = encodeURIComponent(key);
-    const encoded_val = encodeURIComponent(value);
-    req.write(`${encoded_key}=${encoded_val}`);
-    req.end();
-  });
+export const set = async (key, value) => {
+  return send({
+    method: "POST",
+    path: "/kv",
+    form: {
+      [key]: value,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+
+      if (res.status === 0) {
+        return undefined;
+      }
+
+      throw new Error(res.error);
+    })
+    .catch((err) => {
+      console.log(`exception during: set(${key}, ${value})`);
+      console.log(err);
+      throw err;
+    });
+};
+
+export const publish = async (topic, data) => {
+  return send({
+    method: "POST",
+    path: "/publish",
+    form: {
+      [topic]: data,
+    },
+  })
+    .then((data) => {
+      const res = JSON.parse(data);
+
+      if (res.status === 0) {
+        return undefined;
+      }
+
+      throw new Error(res.error);
+    })
+    .catch((err) => {
+      console.log(`exception during: publish(${topic}, ${data})`);
+      console.log(err);
+      throw err;
+    });
+};
+
+export const subscribe = async (topic, cb) => {
+  try {
+    const data = await send({
+      method: "GET",
+      path: "/subscribe",
+      query: {
+        topic: topic,
+      },
+    });
+    const res = JSON.parse(data);
+    if (res.status === 0) {
+      return undefined;
+    }
+
+    if (res.status === 1) {
+      throw new Error(res.error);
+    }
+
+    if (res.status !== 2) {
+      throw new Error(
+        "received an unrecognized payload, are you running on an outdated version?"
+      );
+    }
+  } catch (err) {
+    console.log(`exception during: subscribe(${topic})`);
+    console.log(err);
+    throw err;
+  }
+
+  let num = 0;
+  while (true) {
+    try {
+      const data = await send({
+        method: "GET",
+        path: "/subscribe_get",
+        query: {
+          topic: topic,
+        },
+      });
+      const res = JSON.parse(data);
+      if (res.status === 0) {
+        cb(res.data);
+        num = 0;
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (err) {
+      console.log(`encountered error within subscription for ${topic}`);
+      console.log(err);
+      console.log("retyring with backoff...");
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          resolve();
+        }, (1 << num) * 1000);
+      });
+      num += 1;
+    }
+  }
+};
