@@ -7,6 +7,7 @@ export { cron } from './cron.js';
 export { redis } from './redis.js';
 export { mysql } from './mysql.js';
 export { publish, subscribe } from './pubsub.js';
+export { mount } from './mount.js';
 
 export const open = async (path, mode) => {
   const { kernel_url, kernel_port, token } = check_env();
