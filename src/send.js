@@ -62,10 +62,6 @@ export const send = ({ method, path, query, form }) => {
         headers: headers,
       },
       (res) => {
-        if (res.statusCode !== 200) {
-          reject(new Error("unable to access kernel"));
-        }
-
         if (res.headers.token !== undefined) {
           process.env.__PEBL_TOKEN = res.headers.token;
         }
